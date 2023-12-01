@@ -63,18 +63,17 @@ if __name__ == '__main__':
                     formula.add_clause([-instanceMapper.get_literal_from_mapping(pre), instanceMapper.get_literal_from_mapping(acao)])
                     print(satPlanInstance.get_action_preconditions(acao))
                     print(-instanceMapper.get_literal_from_mapping(pre), instanceMapper.get_literal_from_mapping(acao))
-                for pos in satPlanInstance.get_action_posconditions(acao):
-                    if pos[0] == '~':
-                         formula.add_clause([-instanceMapper.get_literal_from_mapping(acao), -instanceMapper.get_literal_from_mapping(pos)])
-                         formula.add_clause([-instanceMapper.get_literal_from_mapping(pos)])
-                         print(-instanceMapper.get_literal_from_mapping(acao), -instanceMapper.get_literal_from_mapping(pos))
-                    else:
-                        formula.add_clause([-instanceMapper.get_literal_from_mapping(acao), instanceMapper.get_literal_from_mapping(pos)])
-                        formula.add_clause([instanceMapper.get_literal_from_mapping(pos)])
-                        print(-instanceMapper.get_literal_from_mapping(acao), instanceMapper.get_literal_from_mapping(pos))
-
-        status = True
-
+                    if formula.solve() == True:
+                        for pos in satPlanInstance.get_action_posconditions(acao):
+                            if pos[0] == '~':
+                                formula.add_clause([-instanceMapper.get_literal_from_mapping(acao), -instanceMapper.get_literal_from_mapping(pos)])
+                                formula.add_clause([-instanceMapper.get_literal_from_mapping(pos)])
+                                print(-instanceMapper.get_literal_from_mapping(acao), -instanceMapper.get_literal_from_mapping(pos))
+                            else:
+                                formula.add_clause([-instanceMapper.get_literal_from_mapping(acao), instanceMapper.get_literal_from_mapping(pos)])
+                                formula.add_clause([instanceMapper.get_literal_from_mapping(pos)])
+                                print(-instanceMapper.get_literal_from_mapping(acao), instanceMapper.get_literal_from_mapping(pos))
+                
 
 
 
