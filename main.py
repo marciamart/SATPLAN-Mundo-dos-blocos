@@ -24,181 +24,81 @@ if __name__ == '__main__':
 
     satPlanInstance = SatPlanInstance(sys.argv[1])
     instanceMapper  = SatPlanInstanceMapper()
-    formula = Glucose4()
-
-    #mapeamento indo e voltando
-    instanceMapper.add_list_of_literals_to_mapping(satPlanInstance.get_atoms())
-
-    nivel = 0
-    status = False #formula.solve()
-
-    print(satPlanInstance.get_final_state())
-
-    #estado inical
-    for block_state in (instanceMapper.get_list_of_literals_from_mapping(satPlanInstance.get_initial_state())):
-        formula.add_clause([block_state])
-        print(block_state)
-
-    for block_state_neg in satPlanInstance.get_state_atoms():
-        if block_state_neg not in satPlanInstance.get_initial_state():
-            formula.add_clause([-instanceMapper.get_literal_from_mapping(block_state_neg)])
-            print(-instanceMapper.get_literal_from_mapping(block_state_neg))
 
 
-    #estado final
-    for block_state in instanceMapper.get_list_of_literals_from_mapping(satPlanInstance.get_final_state()):
-        formula.add_clause([block_state])
-        print(block_state)
+    niveis = 1
+    
+    niveln = create_literals_for_level_from_list(0, satPlanInstance.get_atoms())
+    instanceMapper.add_list_of_literals_to_mapping(niveln)
 
 
+    while True:
+        formula = Glucose4()
 
+        #criar todos os literais do proximo nivel
+        niveln = create_literals_for_level_from_list(niveis, satPlanInstance.get_atoms())
+        instanceMapper.add_list_of_literals_to_mapping(niveln)
 
-    #passagem de nivel 
-    while status == False:
-        nivel += 1
-        # qual ação posso usar de acordo com as pre condiçoes que possuo
-        for i in range(nivel):
+        niveln = create_literals_for_level_from_list(niveis+1, satPlanInstance.get_atoms())
+        instanceMapper.add_list_of_literals_to_mapping(niveln)
+
+        # estado inical
+        for states in create_state_from_literals(satPlanInstance.get_initial_state(),satPlanInstance.get_state_atoms()):
+                if states[0] == '~':
+                    states = states.replace("~","")
+                    formula.add_clause([-instanceMapper.get_literal_from_mapping(f'{0}_{states}')])
+                else: 
+                    formula.add_clause([instanceMapper.get_literal_from_mapping(f'{0}_{states}')])
+
+        #estado final 
+        for states in satPlanInstance.get_final_state():
+            formula.add_clause([instanceMapper.get_literal_from_mapping(f'{niveis}_{states}')])
+        
+
+        for i in range(niveis):
+
+            #acoes
+            clausula = [] 
+            for acao in satPlanInstance.get_actions():
+                clausula.append(instanceMapper.get_literal_from_mapping(f'{i}_{acao}'))
+            formula.add_clause(clausula)
+            #mas so uma delas
+            for acao in range(len(clausula)):
+                for acao1 in range(acao + 1,len(clausula)):
+                    formula.add_clause([-clausula[acao], -clausula[acao1]])
+
+            #tratando as pre-condiçoes
             for acao in satPlanInstance.get_actions():
                 for pre in satPlanInstance.get_action_preconditions(acao):
-                    formula.add_clause([-instanceMapper.get_literal_from_mapping(pre), instanceMapper.get_literal_from_mapping(acao)])
-                    print(satPlanInstance.get_action_preconditions(acao))
-                    print(-instanceMapper.get_literal_from_mapping(pre), instanceMapper.get_literal_from_mapping(acao))
+                    if pre[0] == '~':
+                        pre = pre.replace('~','')
+                        formula.add_clause([-instanceMapper.get_literal_from_mapping(f'{i}_{acao}'), -instanceMapper.get_literal_from_mapping(f'{i}_{pre}')])
+                    else: formula.add_clause([-instanceMapper.get_literal_from_mapping(f'{i}_{acao}'), instanceMapper.get_literal_from_mapping(f'{i}_{pre}')])
+            
+            #tratando as pos-condiçoes
+            for acao in satPlanInstance.get_actions():
                 for pos in satPlanInstance.get_action_posconditions(acao):
                     if pos[0] == '~':
-                         formula.add_clause([-instanceMapper.get_literal_from_mapping(acao), -instanceMapper.get_literal_from_mapping(pos)])
-                         formula.add_clause([-instanceMapper.get_literal_from_mapping(pos)])
-                         print(-instanceMapper.get_literal_from_mapping(acao), -instanceMapper.get_literal_from_mapping(pos))
-                    else:
-                        formula.add_clause([-instanceMapper.get_literal_from_mapping(acao), instanceMapper.get_literal_from_mapping(pos)])
-                        formula.add_clause([instanceMapper.get_literal_from_mapping(pos)])
-                        print(-instanceMapper.get_literal_from_mapping(acao), instanceMapper.get_literal_from_mapping(pos))
+                        pos = pos.replace("~","")
+                        formula.add_clause([-instanceMapper.get_literal_from_mapping(f'{i}_{acao}'), -instanceMapper.get_literal_from_mapping(f'{i+1}_{pos}')])
+                    else: 
+                        formula.add_clause([-instanceMapper.get_literal_from_mapping(f'{i}_{acao}'), instanceMapper.get_literal_from_mapping(f'{i+1}_{pos}')])
+                poscond = satPlanInstance.get_action_posconditions(acao)
+                #acoes que nao serao afetadas para o prox nivel
+                nafetados = [i for i in satPlanInstance.get_state_atoms() if i not in poscond and f'~{i}' not in poscond]
+                for nafetado in nafetados:
+                    formula.add_clause([-instanceMapper.get_literal_from_mapping(f'{i}_{nafetado}'), -instanceMapper.get_literal_from_mapping(f'{i}_{acao}'), instanceMapper.get_literal_from_mapping(f'{i+1}_{nafetado}') ])
+                    formula.add_clause([instanceMapper.get_literal_from_mapping(f'{i}_{nafetado}'), -instanceMapper.get_literal_from_mapping(f'{i}_{acao}'), -instanceMapper.get_literal_from_mapping(f'{i+1}_{nafetado}') ])
 
-        status = True
+        formula.solve()
+        if formula.get_model() is not None:           
+            for literal in formula.get_model():
+                if literal < 0:
+                    continue
+                for acao in satPlanInstance.get_actions():
+                    if acao in instanceMapper.get_literal_from_mapping_reverse(literal) :
+                        print(instanceMapper.get_literal_from_mapping_reverse(literal))
+                        break
+            break
 
-
-
-
-    print(instanceMapper.mapping)
-    print(satPlanInstance.get_actions())
-    print(satPlanInstance.get_state_atoms())
-
-    for acao in satPlanInstance.get_actions():
-        for pre in satPlanInstance.get_action_preconditions(acao):
-            print(acao)
-            print(-instanceMapper.get_literal_from_mapping(pre))
-            print(instanceMapper.get_literal_from_mapping(acao))
-            formula.add_clause([-instanceMapper.get_literal_from_mapping(pre), instanceMapper.get_literal_from_mapping(acao)])
-            print('------------------------------------------------------------')
-
-    #o nivel serve para ver quantas vezes ele buscara uma açao
-    #laço de repetição que escolhe qual ação pode ser usada pois oq tem sao suas pre condiçoes
-    #atualiza o mapping com as pos condiçoes que ele possui
-    #a cada ação escolhida o solve é ativado para ver se esta solucionando 
-    #laço se repete ate dar true
-    #quando dar true encontra significa que aquela é a o passo a passo de açoes usadas
-
-    print(formula.solve())
-    print(formula.get_model())
-
-
-
-
-
-    # print(instanceMapper.mapping)
-    # print('////////////////////')
-    # print(aux)
-    # print('////////////////////')
-    # print(satPlanInstance.get_action_posconditions('pick-up_a'))
-    # print(satPlanInstance.get_action_preconditions('pick-up_a'))
-
-
-
-    # estado inical
-    # print(instanceMapper.mapping)
-    # print('////////////////////////')
-    # estado_inicial = create_literals_for_level_from_list(0, satPlanInstance.get_initial_state())
-    # print(estado_inicial)
-    # instanceMapper.add_list_of_literals_to_mapping(estado_inicial)
-    # print(instanceMapper.get_list_of_literals_from_mapping(estado_inicial))
-    # print(instanceMapper.mapping)
-    # for block_state in (instanceMapper.get_list_of_literals_from_mapping(estado_inicial)):
-    #     formula.add_clause([block_state])
-    #     print(block_state)
-    # for block_state_neg in instanceMapper.mapping:
-    #     if block_state_neg not in estado_inicial:
-    #         formula.add_clause([-instanceMapper.get_literal_from_mapping(block_state_neg)])
-    #         print(-instanceMapper.get_literal_from_mapping(block_state_neg))
-
-    # print(instanceMapper.mapping)
-
-    # # estado final
-    # estado_final = satPlanInstance.get_final_state()
-    # for block_state in estado_final:
-    #     print(instanceMapper.get_literal_from_mapping(block_state))
-    #     formula.add_clause([instanceMapper.get_literal_from_mapping(block_state)])
-
-
-    # # pos 
-    # for i in satPlanInstance.actions:
-    #     formula.add_clause([instanceMapper.get_literal_from_mapping(i)])
-
-    # print(instanceMapper.mapping)
-
-
-
-
-
-
-
-    # estado_inicial = satPlanInstance.get_initial_state()
-    # estado_final = satPlanInstance.get_final_state()
-    # print(estado_inicial)
-    # print(estado_final)
-
-    # atomos = satPlanInstance.get_atoms()
-    # print(atomos)
-
-
-
-### estudos 
-    # print(satPlanInstance.get_atoms())
-    # print(satPlanInstance.get_state_atoms())
-
-    # a = satPlanInstance.get_state_atoms()
-    # a = satPlanInstance.get_action_posconditions("pick-up_b")
-    # print(a)
-    # b = instanceMapper.get_list_of_literals_from_mapping(a)
-    # print(b)
-    # # print(instanceMapper.get_literal_from_mapping_reverse(-8))
-    # print(create_literals_for_level_from_list(5,a))
-    # # print(create_state_from_literals(['holding_b','on_a_b'],satPlanInstance.get_atoms()))
-
-### tudo
-
-    
-    # estado_inicial = satPlanInstance.get_initial_state()
-    # estado_final = satPlanInstance.get_final_state()
-    # print(estado_inicial)
-    # print(estado_final)
-
-
-##### original alexandre
-#o codigo a seguir é exemplo de uso
-    # satPlanInstance = SatPlanInstance(sys.argv[1])
-    # instanceMapper  = SatPlanInstanceMapper()
-    # instanceMapper.add_list_of_literals_to_mapping(satPlanInstance.get_atoms())
-    # print(instanceMapper.mapping)
-    # # a = satPlanInstance.get_state_atoms()
-    # a = satPlanInstance.get_action_posconditions("pick-up_b")
-    # # print('///////////////////')
-    # # print(a)
-    # b = instanceMapper.get_list_of_literals_from_mapping(a)
-    # print(b)
-    # print(instanceMapper.get_literal_from_mapping_reverse(-8))
-    # print(create_literals_for_level_from_list(5,a))
-    # print(create_literal_for_level(5,'on_a_b'))
-    # print("/////////////////////////")
-    # oi = create_state_from_literals(['holding_b','on_a_b'],satPlanInstance.get_atoms()) 
-
-    #qual que quero que fique positivo, de quais(outros serao negados)
-    # print(create_state_from_literals(['holding_b','on_a_b'],satPlanInstance.get_atoms()))
+        niveis += 1
