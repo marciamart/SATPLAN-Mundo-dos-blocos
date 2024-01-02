@@ -83,10 +83,12 @@ if __name__ == '__main__':
                         formula.add_clause([-instanceMapper.get_literal_from_mapping(f'{i}_{acao}'), -instanceMapper.get_literal_from_mapping(f'{i+1}_{pos}')])
                     else: 
                         formula.add_clause([-instanceMapper.get_literal_from_mapping(f'{i}_{acao}'), instanceMapper.get_literal_from_mapping(f'{i+1}_{pos}')])
+                
                 poscond = satPlanInstance.get_action_posconditions(acao)
                 #acoes que nao serao afetadas para o prox nivel
                 nafetados = [i for i in satPlanInstance.get_state_atoms() if i not in poscond and f'~{i}' not in poscond]
                 for nafetado in nafetados:
+                    #estado ^ acao -> estado = -estado v -acao v estado
                     formula.add_clause([-instanceMapper.get_literal_from_mapping(f'{i}_{nafetado}'), -instanceMapper.get_literal_from_mapping(f'{i}_{acao}'), instanceMapper.get_literal_from_mapping(f'{i+1}_{nafetado}') ])
                     formula.add_clause([instanceMapper.get_literal_from_mapping(f'{i}_{nafetado}'), -instanceMapper.get_literal_from_mapping(f'{i}_{acao}'), -instanceMapper.get_literal_from_mapping(f'{i+1}_{nafetado}') ])
 
